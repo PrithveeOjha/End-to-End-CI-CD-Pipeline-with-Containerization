@@ -89,4 +89,4 @@ jobs:
         kubectl rollout status deployment/$IMAGE_NAME-deployment # Wait for deployment to be ready
         echo "Deployment to Kubernetes initiated."
       # Ensure your deployment.yaml and service.yaml are configured to pull from Docker Hub
-      # and reference the image: $DOCKER_USERNAME/$IMAGE_NAME:latest
+      # reference the image: $DOCKER_USERNAME/$IMAGE_NAME:latest
