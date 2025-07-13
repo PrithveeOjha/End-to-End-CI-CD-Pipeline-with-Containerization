@@ -58,7 +58,7 @@ jobs:
     # manually pull the image from Docker Hub.
 
     - name: Set up Kubectl on the runner 🛠️
-      uses: kubectl-action/setup@v2 # Action to install kubectl CLI tool
+      uses: azure/setup-kubectl@v3 # Action to install kubectl CLI tool
       with:
         version: 'latest' # Installs the latest stable kubectl version
 
