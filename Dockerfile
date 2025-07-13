@@ -1,4 +1,4 @@
-FROM python:3.9-slim-buster
+FROM python:3.10-slim-buster
 WORKDIR /app
 
   # Copy the requirements file into the container at /app
@@ -14,7 +14,7 @@ WORKDIR /app
   EXPOSE 5000
 
   # Define environment variable
-  ENV NAME World
+  ENV NAME=World
 
   # Run app.py when the container launches
   CMD ["python", "app.py"]

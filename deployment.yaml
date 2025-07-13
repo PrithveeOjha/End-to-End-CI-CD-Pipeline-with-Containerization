@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-flask-app-deployment
+  labels:
+    app: my-flask-app
+spec:
+  replicas: 1 # Number of instances of your app to run
+  selector:
+    matchLabels:
+      app: my-flask-app
+  template:
+    metadata:
+      labels:
+        app: my-flask-app
+    spec:
+      containers:
+      - name: my-flask-app-container
+        image: my-flask-app:latest # Use the image built locally in Minikube
+        imagePullPolicy: Never # Tell Kubernetes NOT to pull from a registry, use local image
+        ports:
+        - containerPort: 5000 # The port your Flask app listens on
