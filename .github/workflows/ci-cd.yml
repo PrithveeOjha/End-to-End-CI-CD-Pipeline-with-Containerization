@@ -1,38 +1,92 @@
-name: CI/CD Pipeline with Docker
+name: CI/CD Pipeline for Kubernetes (Conceptual Deployment)
+
 on:
-   push:
-      branches:
-        - main # or master, depending on your default branch name
+  push:
+    branches:
+      - main # Or 'master', depending on your default branch
+
+env:
+  # Your Docker Hub username - used for image tagging
+  DOCKER_USERNAME: your-dockerhub-username # <-- IMPORTANT: Replace with your actual Docker Hub username!
+  IMAGE_NAME: my-flask-app # Name of your Docker image
 
 jobs:
-    build-and-deploy:
-      runs-on: ubuntu-latest # The type of machine to run the job on
+  build-and-deploy:
+    runs-on: ubuntu-latest # GitHub-hosted runner (a fresh VM for each run)
 
-      steps:
-      - name: Checkout code
-        uses: actions/checkout@v4 # Action to check out your repository code
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4 # Action to pull your repository code into the runner
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }} # Use GitHub Secrets for security
-          password: ${{ secrets.DOCKER_PASSWORD }} # Use GitHub Secrets for security
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9' # Ensure this matches your Dockerfile's Python version
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: . # Build from the current directory
-          push: true # Push the image to Docker Hub
-          tags: |
-            ${{ secrets.DOCKER_USERNAME }}/my-flask-app:latest
-            ${{ secrets.DOCKER_USERNAME }}/my-flask-app:${{ github.sha }} # Tag with commit SHA
+    - name: Install Python dependencies (for any tests before Docker build)
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+      # This step assumes your 'requirements.txt' is compatible with Python 3.9
+      # If not, you might need to adjust your Dockerfile's Python version or handle test dependencies differently.
 
-      # This is a placeholder for deployment.
-      # Actual deployment depends on your environment (VM, Kubernetes, etc.)
-      - name: Deploy to a basic environment (placeholder)
-        run: |
-          echo "Deployment step would go here."
-          echo "Example: SSH into your VM and run 'docker pull' and 'docker run'."
-          echo "For a simple VM, you might have a script on the VM that pulls the latest image."
-          # Example for a simple VM assuming SSH access and Docker installed:
-          # ssh -o StrictHostKeyChecking=no your_vm_user@your_vm_ip "docker pull ${{ secrets.DOCKER_USERNAME }}/my-flask-app:latest && docker stop my-flask-app-container || true && docker rm my-flask-app-container || true && docker run -d --name my-flask-app-container -p 80:5000 ${{ secrets.DOCKER_USERNAME }}/my-flask-app:latest"
+    - name: Run Unit/Integration Tests (Placeholder) ✅
+      run: |
+        echo "Running tests... (e.g., pytest)"
+        # Add your actual test command here. Example: pytest --cov=./ --cov-report=xml
+        # If tests fail, this step will fail, and the workflow will stop.
+
+    - name: Log in to Docker Hub 🔑
+      uses: docker/login-action@v3 # Pre-built action to log into Docker Hub
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }} # From GitHub Secrets
+        password: ${{ secrets.DOCKER_PASSWORD }} # From GitHub Secrets (your Docker Hub Access Token)
+
+    - name: Build and push Docker image to Docker Hub 📦
+      run: |
+        docker build -t $DOCKER_USERNAME/$IMAGE_NAME:${{ github.sha }} . # Tag with unique Git SHA
+        docker push $DOCKER_USERNAME/$IMAGE_NAME:${{ github.sha }}
+
+        docker tag $DOCKER_USERNAME/$IMAGE_NAME:${{ github.sha }} $DOCKER_USERNAME/$IMAGE_NAME:latest # Also tag as 'latest'
+        docker push $DOCKER_USERNAME/$IMAGE_NAME:latest
+      # This pushes your image to Docker Hub, making it available for any cluster to pull.
+
+    # --- Kubernetes Deployment Steps (Conceptual for a remote cluster) ---
+    # This section demonstrates how you would interact with a Kubernetes cluster
+    # from GitHub Actions. It assumes you have a *remote* Kubernetes cluster configured.
+    # For a *local Minikube*, these steps would run on your machine *after* you
+    # manually pull the image from Docker Hub.
+
+    - name: Set up Kubectl on the runner 🛠️
+      uses: kubectl-action/setup@v2 # Action to install kubectl CLI tool
+      with:
+        version: 'latest' # Installs the latest stable kubectl version
+
+    - name: Configure Kubeconfig for a remote cluster 🔐
+      # This is the CRITICAL part for connecting to a REAL Kubernetes cluster.
+      # You would store your base64-encoded kubeconfig as a GitHub Secret (e.g., KUBE_CONFIG_DATA).
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 -d > ~/.kube/config
+        chmod 600 ~/.kube/config
+        echo "Kubeconfig configured for remote deployment."
+      env:
+        # KUBE_CONFIG_DATA: This secret would contain the base64 encoded content of your
+        #                   kubeconfig file (e.g., from `cat ~/.kube/config | base64`).
+        #                   This is how the GitHub Actions runner authenticates to your K8s cluster.
+        #                   If using a cloud-managed service like GKE/EKS/AKS, you'd use
+        #                   their specific actions (e.g., `google-github-actions/get-gke-credentials`).
+        KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }}
+      # This step will FAIL if KUBE_CONFIG_DATA secret is not set up, or if it's
+      # not a real Kubernetes cluster accessible from the internet.
+
+    - name: Apply Kubernetes manifests to the cluster 🚀
+      # These commands will deploy your application using the YAML files from your repo.
+      run: |
+        kubectl apply -f deployment.yaml
+        kubectl apply -f service.yaml
+        echo "Waiting for deployment to roll out..."
+        kubectl rollout status deployment/$IMAGE_NAME-deployment # Wait for deployment to be ready
+        echo "Deployment to Kubernetes initiated."
+      # Ensure your deployment.yaml and service.yaml are configured to pull from Docker Hub
+      # and reference the image: $DOCKER_USERNAME/$IMAGE_NAME:latest
