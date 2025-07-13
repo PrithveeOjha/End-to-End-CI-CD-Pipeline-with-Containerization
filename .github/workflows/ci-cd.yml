@@ -7,7 +7,7 @@ on:
 
 env:
   # Your Docker Hub username - used for image tagging
-  DOCKER_USERNAME: your-dockerhub-username # <-- IMPORTANT: Replace with your actual Docker Hub username!
+  DOCKER_USERNAME: prithv33 # <-- IMPORTANT: Replace with your actual Docker Hub username!
   IMAGE_NAME: my-flask-app # Name of your Docker image
 
 jobs:
