@@ -1,0 +1,38 @@
+name: CI/CD Pipeline with Docker
+on:
+   push:
+      branches:
+        - main # or master, depending on your default branch name
+
+jobs:
+    build-and-deploy:
+      runs-on: ubuntu-latest # The type of machine to run the job on
+
+      steps:
+      - name: Checkout code
+        uses: actions/checkout@v4 # Action to check out your repository code
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }} # Use GitHub Secrets for security
+          password: ${{ secrets.DOCKER_PASSWORD }} # Use GitHub Secrets for security
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: . # Build from the current directory
+          push: true # Push the image to Docker Hub
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/my-flask-app:latest
+            ${{ secrets.DOCKER_USERNAME }}/my-flask-app:${{ github.sha }} # Tag with commit SHA
+
+      # This is a placeholder for deployment.
+      # Actual deployment depends on your environment (VM, Kubernetes, etc.)
+      - name: Deploy to a basic environment (placeholder)
+        run: |
+          echo "Deployment step would go here."
+          echo "Example: SSH into your VM and run 'docker pull' and 'docker run'."
+          echo "For a simple VM, you might have a script on the VM that pulls the latest image."
+          # Example for a simple VM assuming SSH access and Docker installed:
+          # ssh -o StrictHostKeyChecking=no your_vm_user@your_vm_ip "docker pull ${{ secrets.DOCKER_USERNAME }}/my-flask-app:latest && docker stop my-flask-app-container || true && docker rm my-flask-app-container || true && docker run -d --name my-flask-app-container -p 80:5000 ${{ secrets.DOCKER_USERNAME }}/my-flask-app:latest"
